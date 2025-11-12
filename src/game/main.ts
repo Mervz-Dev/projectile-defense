@@ -19,8 +19,17 @@ const config: Types.Core.GameConfig = {
   },
 };
 
-const StartGame = (parent: string) => {
-  return new Game({ ...config, parent });
+type Params = {
+  name: string;
+};
+
+const StartGame = (parent: string, params?: Params) => {
+  const game = new Game({ ...config, parent });
+  if (params?.name) {
+    game.registry.set("name", params?.name);
+  }
+
+  return game;
 };
 
 export default StartGame;
