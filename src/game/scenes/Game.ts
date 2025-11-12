@@ -57,6 +57,18 @@ export class Game extends Scene {
       })
       .setDepth(100);
 
+    this.add
+      .text(
+        this.scale.width - 12,
+        this.scale.height - 36,
+        this.registry.get("name"),
+        {
+          fontSize: 24,
+        }
+      )
+      .setOrigin(1, 0)
+      .setDepth(100);
+
     const leftSensor = this.add.rectangle(
       0,
       this.scale.height / 2,
