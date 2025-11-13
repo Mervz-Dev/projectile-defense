@@ -1,12 +1,10 @@
 import { Game as MainGame } from "./scenes/Game";
 import { AUTO, Game, Types } from "phaser";
 
-// Find out more information about the Game Config at:
-// https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
 const config: Types.Core.GameConfig = {
   type: AUTO,
-  width: 1024,
-  height: 768,
+  width: window.innerWidth, // use full screen width
+  height: window.innerHeight, // use full screen height
   parent: "game-container",
   backgroundColor: "#1c253c",
   scene: [MainGame],
@@ -16,6 +14,10 @@ const config: Types.Core.GameConfig = {
       gravity: { x: 0, y: 0 },
       debug: false,
     },
+  },
+  scale: {
+    mode: Phaser.Scale.FIT, // scale game to fit screen
+    autoCenter: Phaser.Scale.CENTER_BOTH, // center it
   },
 };
 
