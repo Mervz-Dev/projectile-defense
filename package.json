@@ -1,7 +1,7 @@
 {
   "name": "projectile-defense",
   "description": "Game with aliens",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/Mervz-Dev/projectile-defense"
