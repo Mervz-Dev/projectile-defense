@@ -22,6 +22,17 @@ export class Game extends Scene {
   private score = 0;
   private health = 10;
 
+  private speed = 400;
+
+  private upButton: Phaser.GameObjects.Image;
+  private downButton: Phaser.GameObjects.Image;
+  private fireButton: Phaser.GameObjects.Image;
+  private crossHair: Phaser.GameObjects.Image;
+
+  private isDownPressed = false;
+  private isUpPressed = false;
+  private isFirePressed = false;
+
   constructor() {
     super("Game");
   }
@@ -40,22 +51,109 @@ export class Game extends Scene {
 
     this.load.audio("gun", "audio/gun_1.wav");
 
+    this.load.image("circle_button", "ui/controls/button_circle.png");
+    this.load.image("crosshair", "ui/controls/icon_crosshair.png");
+    this.load.image("down_button", "ui/controls/dpad_element_north.png");
+    this.load.image("up_button", "ui/controls/dpad_element_south.png");
+
     this.cursors = this.input.keyboard?.createCursorKeys();
   }
 
   create() {
     // this.add.image(512, 384, "background");
 
-    this.scoreText = this.add.text(12, 12, "Score: 0", { fontSize: 24 });
-    this.healthText = this.add.text(200, 12, "Health: 20", {
-      fontSize: 24,
+    this.responsive.preload();
+
+    this.upButton = this.add
+      .image(64, this.scale.height - 155, "up_button")
+      .setDepth(100)
+      .setScale(this.responsive.scaleFactor)
+      .setInteractive({ useHandCursor: true })
+      .setAlpha(0.7);
+    this.downButton = this.add
+      .image(64, this.scale.height - 80, "down_button")
+      .setDepth(100)
+      .setScale(this.responsive.scaleFactor)
+      .setInteractive({ useHandCursor: true })
+      .setAlpha(0.7);
+
+    this.fireButton = this.add
+      .image(this.scale.width - 80, this.scale.height - 100, "circle_button")
+      .setDepth(100)
+      .setScale(this.responsive.scaleFactor + 0.5)
+      .setInteractive({ useHandCursor: true });
+
+    this.crossHair = this.add
+      .image(this.scale.width - 80, this.scale.height - 100, "crosshair")
+      .setDepth(101)
+      .setScale(this.responsive.scaleFactor);
+
+    this.downButton.on("pointerdown", () => {
+      this.isDownPressed = true;
+      this.downButton.setAlpha(0.5);
     });
+
+    this.downButton.on("pointerup", () => {
+      this.isDownPressed = false;
+      this.downButton.setAlpha(0.7);
+    });
+
+    this.downButton.on("pointerout", () => {
+      this.isDownPressed = false;
+      this.downButton.setAlpha(0.7);
+    });
+
+    this.upButton.on("pointerdown", () => {
+      this.isUpPressed = true;
+      this.upButton.setAlpha(0.5);
+    });
+
+    this.upButton.on("pointerup", () => {
+      this.isUpPressed = false;
+      this.upButton.setAlpha(0.7);
+    });
+
+    this.upButton.on("pointerout", () => {
+      this.isUpPressed = false;
+      this.upButton.setAlpha(0.7);
+    });
+
+    this.fireButton.on("pointerdown", () => {
+      this.isFirePressed = true;
+      this.fireButton.setAlpha(0.7);
+      this.crossHair.setAlpha(0.8);
+      this.crossHair.setTint(0xff6666);
+    });
+
+    this.fireButton.on("pointerup", () => {
+      this.isFirePressed = false;
+      this.fireButton.setAlpha(1);
+      this.crossHair.setAlpha(1);
+      this.crossHair.clearTint();
+    });
+
+    this.fireButton.on("pointerout", () => {
+      this.isFirePressed = false;
+      this.fireButton.setAlpha(1);
+      this.crossHair.setAlpha(1);
+      this.crossHair.clearTint();
+    });
+
+    this.scoreText = this.add
+      .text(12, 12, "Score: 0", { fontSize: 24 })
+      .setScale(this.responsive.scaleFactor);
+    this.healthText = this.add
+      .text(200, 12, "Health: 20", {
+        fontSize: 24,
+      })
+      .setScale(this.responsive.scaleFactor);
 
     this.add
       .text(12, this.scale.height - 36, "Space to Shoot ; Up/Down to Move", {
         fontSize: 24,
       })
-      .setDepth(100);
+      .setDepth(10)
+      .setScale(this.responsive.scaleFactor);
 
     this.add
       .text(
@@ -67,7 +165,8 @@ export class Game extends Scene {
         }
       )
       .setOrigin(1, 0)
-      .setDepth(100);
+      .setDepth(100)
+      .setScale(this.responsive.scaleFactor);
 
     const leftSensor = this.add.rectangle(
       0,
@@ -88,7 +187,9 @@ export class Game extends Scene {
     this.scoreText.setDepth(100);
     this.healthText.setDepth(100);
 
-    this.player = this.physics.add.sprite(64, 64, "ship");
+    this.player = this.physics.add
+      .sprite(64, 64, "ship")
+      .setScale(this.responsive.scaleFactor);
 
     this.bullets = this.physics.add.group({
       classType: Bullet,
@@ -107,8 +208,8 @@ export class Game extends Scene {
       delay: 2000,
       loop: true,
       callback: () => {
-        const y = Phaser.Math.Between(64, 640);
-        this.spawnEnemy(800, y);
+        const y = Phaser.Math.Between(64, this.scale.height - 64);
+        this.spawnEnemy(this.scale.width - 100, y);
       },
     });
 
@@ -145,16 +246,16 @@ export class Game extends Scene {
       return;
     }
 
-    if (this.cursors?.down.isDown) {
-      this.player.setVelocityY(400);
-    } else if (this.cursors?.up.isDown) {
-      this.player.setVelocityY(-400);
+    if (this.cursors?.down.isDown || this.isDownPressed) {
+      this.player.setVelocityY(this.speed * this.responsive.scaleY);
+    } else if (this.cursors?.up.isDown || this.isUpPressed) {
+      this.player.setVelocityY(-this.speed * this.responsive.scaleY);
     } else {
       this.player.setVelocityY(0);
     }
 
     if (
-      this.cursors?.space.isDown &&
+      (this.cursors?.space.isDown || this.isFirePressed) &&
       time > this.lastShotTime + this.shootCooldown
     ) {
       this.sound.play("gun");

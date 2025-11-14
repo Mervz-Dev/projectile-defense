@@ -1,10 +1,14 @@
+import { getScreenSizeRatio } from "../utils/resize";
 import { Game as MainGame } from "./scenes/Game";
 import { AUTO, Game, Types } from "phaser";
+import { ResponsiveDimensionsPlugin } from "./plugins/responsive-dimensions-plugin";
+
+const { width, height } = getScreenSizeRatio();
 
 const config: Types.Core.GameConfig = {
   type: AUTO,
-  width: window.innerWidth, // use full screen width
-  height: window.innerHeight, // use full screen height
+  width: width, // use full screen width
+  height: height, // use full screen height
   parent: "game-container",
   backgroundColor: "#1c253c",
   scene: [MainGame],
@@ -16,8 +20,17 @@ const config: Types.Core.GameConfig = {
     },
   },
   scale: {
-    mode: Phaser.Scale.FIT, // scale game to fit screen
-    autoCenter: Phaser.Scale.CENTER_BOTH, // center it
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  plugins: {
+    scene: [
+      {
+        key: "ResponsiveDimensionsPlugin",
+        plugin: ResponsiveDimensionsPlugin,
+        mapping: "responsive",
+      },
+    ],
   },
 };
 
