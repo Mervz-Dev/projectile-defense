@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { getScreenSizeRatio } from "../../utils/resize";
+import { BASE_HEIGHT, BASE_WIDTH } from "../../constants/dimensions";
 
 export class ResponsiveDimensionsPlugin extends Phaser.Plugins.ScenePlugin {
   public screenSize = getScreenSizeRatio();
@@ -17,25 +18,19 @@ export class ResponsiveDimensionsPlugin extends Phaser.Plugins.ScenePlugin {
     this.scaleFactor = 1;
   }
 
-  preload() {
-    this.scaleX = this.scene!.scale.width / this.screenSize.width;
-    this.scaleY = this.scene!.scale.height / this.screenSize.height;
+  boot(): void {
+    this.scaleX = this.screenSize.width / BASE_WIDTH;
+    this.scaleY = this.screenSize.height / BASE_HEIGHT;
     this.scaleFactor = Math.min(this.scaleX, this.scaleY);
   }
 
   addSprite(x: number, y: number, key: string) {
-    this.preload();
-
-    const newX = this.scaleX * x;
-    const newY = this.scaleY * y;
-
-    const sprite = this.scene!.add.sprite(newX, newY, key);
+    const sprite = this.scene!.add.sprite(x, y, key);
     sprite.setScale(this.scaleFactor);
     return sprite;
   }
 
   scaleVelocity(velocity: number) {
-    this.preload();
     return velocity * this.scaleFactor;
   }
 }

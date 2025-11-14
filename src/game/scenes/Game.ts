@@ -57,36 +57,38 @@ export class Game extends Scene {
     this.load.image("up_button", "ui/controls/dpad_element_south.png");
 
     this.cursors = this.input.keyboard?.createCursorKeys();
+
+    // this.responsive.preload();
   }
 
   create() {
     // this.add.image(512, 384, "background");
 
-    this.responsive.preload();
+    console.log(this.responsive, "RESPONSIVE");
 
     this.upButton = this.add
       .image(64, this.scale.height - 155, "up_button")
       .setDepth(100)
-      .setScale(this.responsive.scaleFactor)
+      //   .setScale(this.responsive.scaleFactor)
       .setInteractive({ useHandCursor: true })
       .setAlpha(0.7);
     this.downButton = this.add
       .image(64, this.scale.height - 80, "down_button")
       .setDepth(100)
-      .setScale(this.responsive.scaleFactor)
+      //   .setScale(this.responsive.scaleFactor)
       .setInteractive({ useHandCursor: true })
       .setAlpha(0.7);
 
     this.fireButton = this.add
       .image(this.scale.width - 80, this.scale.height - 100, "circle_button")
       .setDepth(100)
-      .setScale(this.responsive.scaleFactor + 0.5)
+      .setScale(1.5)
       .setInteractive({ useHandCursor: true });
 
     this.crossHair = this.add
       .image(this.scale.width - 80, this.scale.height - 100, "crosshair")
-      .setDepth(101)
-      .setScale(this.responsive.scaleFactor);
+      .setDepth(101);
+    //   .setScale(this.responsive.scaleFactor);
 
     this.downButton.on("pointerdown", () => {
       this.isDownPressed = true;
