@@ -9,7 +9,6 @@ export interface EnemyTraits {
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   protected traits: Required<EnemyTraits>;
-  private s;
 
   constructor(
     scene: Phaser.Scene,
@@ -32,10 +31,6 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       scoreValue: traits.scoreValue ?? 100,
     };
 
-    const scaleX = scene.scale.width / 800; // how much wider the device is vs base
-    const scaleY = scene.scale.height / 600; // how much taller the device is vs base
-    this.s = Math.min(scaleX, scaleY);
-
     this.init();
   }
 
@@ -45,7 +40,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setImmovable(true);
     this.setGravity(0, 0);
     this.setSize(this.width * 0.7, this.height * 0.7);
-    this.setScale(this.s);
+    this.setScale(this.scene.responsive.scaleFactor);
   }
 
   public takeDamage(
