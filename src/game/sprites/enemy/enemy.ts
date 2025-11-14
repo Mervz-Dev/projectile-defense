@@ -35,7 +35,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   public init(): void {
-    this.setVelocityX(this.traits.speed);
+    this.setVelocityX(this.traits.speed * this.scene.responsive.scaleX);
     this.setBounce(0);
     this.setImmovable(true);
     this.setGravity(0, 0);
