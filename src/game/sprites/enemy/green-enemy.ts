@@ -1,21 +1,28 @@
 import { Enemy } from "./enemy";
 
 export class GreenEnemy extends Enemy {
-    constructor(scene: Phaser.Scene, x: number, y: number) {
-        super(scene, x, y, "green_enemy", {
-            name: "GreenEnemy",
-            speed: -320,
-            health: 1,
-            damage: 2,
-            scoreValue: 8,
-        });
-    }
+  private flickerFrequency = 0.02; // radians per ms
+  private flickerSpeed = 40; // px/s at base resolution
 
-    override update(): void {
-        super.update();
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, "green_enemy", {
+      name: "GreenEnemy",
+      speed: -320,
+      health: 1,
+      damage: 2,
+      scoreValue: 8,
+    });
+  }
 
-        // Flame flicker movement
-        this.y += Math.sin(this.scene.time.now / 100) * 0.5;
-    }
+  override update(time: number, delta: number): void {
+    super.update(time, delta);
+    if (!this.body?.enable) return;
+
+    // Fast, small vertical flicker (velocity-based so it is frame-rate independent).
+    this.setVelocityY(
+      Math.sin(time * this.flickerFrequency) *
+        this.flickerSpeed *
+        this.scene.responsive.scaleY
+    );
+  }
 }
-

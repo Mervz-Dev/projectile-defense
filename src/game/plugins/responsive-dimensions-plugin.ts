@@ -1,13 +1,14 @@
 import Phaser from "phaser";
-import { getScreenSizeRatio } from "../../utils/resize";
 import { BASE_HEIGHT, BASE_WIDTH } from "../../constants/dimensions";
 
+/**
+ * Scene plugin exposing how much the current canvas differs from the base
+ * design resolution, so sprites, speeds and UI can scale consistently.
+ */
 export class ResponsiveDimensionsPlugin extends Phaser.Plugins.ScenePlugin {
-  public screenSize = getScreenSizeRatio();
-  public scaleFactor: number;
-
-  public scaleX: number;
-  public scaleY: number;
+  public scaleFactor = 1;
+  public scaleX = 1;
+  public scaleY = 1;
 
   constructor(
     scene: Phaser.Scene,
@@ -15,22 +16,17 @@ export class ResponsiveDimensionsPlugin extends Phaser.Plugins.ScenePlugin {
     pluginKey: string
   ) {
     super(scene, pluginManager, pluginKey);
-    this.scaleFactor = 1;
   }
 
   boot(): void {
-    this.scaleX = this.screenSize.width / BASE_WIDTH;
-    this.scaleY = this.screenSize.height / BASE_HEIGHT;
+    const { width, height } = this.scene!.scale;
+    this.scaleX = width / BASE_WIDTH;
+    this.scaleY = height / BASE_HEIGHT;
     this.scaleFactor = Math.min(this.scaleX, this.scaleY);
   }
 
-  addSprite(x: number, y: number, key: string) {
-    const sprite = this.scene!.add.sprite(x, y, key);
-    sprite.setScale(this.scaleFactor);
-    return sprite;
-  }
-
-  scaleVelocity(velocity: number) {
-    return velocity * this.scaleFactor;
+  /** True when the device reports touch input (shows on-screen controls). */
+  get isTouch(): boolean {
+    return this.scene!.sys.game.device.input.touch;
   }
 }
