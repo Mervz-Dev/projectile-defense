@@ -4,11 +4,28 @@ import { Enemy } from "../sprites/enemy/enemy";
 import { PinkEnemy } from "../sprites/enemy/pink-enemy";
 import { BlueEnemy } from "../sprites/enemy/blue-enemy";
 import { GreenEnemy } from "../sprites/enemy/green-enemy";
+import {
+  PLAYER_SPEED,
+  SHOOT_COOLDOWN_MS,
+  SPAWN_INTERVAL_MIN_MS,
+  SPAWN_INTERVAL_START_MS,
+  SPAWN_INTERVAL_STEP_MS,
+  START_HEALTH,
+} from "../../constants/gameplay";
+
+/** Height (at base resolution) reserved for HUD text at the top and bottom. */
+const HUD_HEIGHT = 44;
+
+type MoveKeys = {
+  W: Phaser.Input.Keyboard.Key;
+  S: Phaser.Input.Keyboard.Key;
+};
 
 export class Game extends Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
+  private moveKeys?: MoveKeys;
 
-  private player: Phaser.Physics.Arcade.Image;
+  private player: Phaser.Physics.Arcade.Sprite;
 
   private bullets: Phaser.Physics.Arcade.Group;
   private enemies: Phaser.Physics.Arcade.Group;
@@ -16,18 +33,12 @@ export class Game extends Scene {
   private scoreText: Phaser.GameObjects.Text;
   private healthText: Phaser.GameObjects.Text;
 
-  private lastShotTime = 0;
-  private shootCooldown = 350; // ms
-
+  // Run state: reset in create() because the scene instance is reused on restart.
   private score = 0;
-  private health = 10;
-
-  private speed = 400;
-
-  private upButton: Phaser.GameObjects.Image;
-  private downButton: Phaser.GameObjects.Image;
-  private fireButton: Phaser.GameObjects.Image;
-  private crossHair: Phaser.GameObjects.Image;
+  private health = START_HEALTH;
+  private isGameOver = false;
+  private lastShotTime = 0;
+  private spawnInterval = SPAWN_INTERVAL_START_MS;
 
   private isDownPressed = false;
   private isUpPressed = false;
@@ -37,321 +48,286 @@ export class Game extends Scene {
     super("Game");
   }
 
-  preload() {
-    this.load.setPath("assets");
+  create() {
+    this.resetState();
 
-    this.load.image("ship", "ships/ship_1.png");
-    this.load.image("missile", "missiles/missile_1.png");
+    const { width, height } = this.scale;
+    const { scaleFactor, isTouch } = this.responsive;
 
-    this.load.image("pink_enemy", "enemies/pink_alien.png");
-    this.load.image("green_enemy", "enemies/green_alien.png");
-    this.load.image("blue_enemy", "enemies/blue_alien.png");
-
-    this.load.image("logo", "logo.png");
-
-    this.load.audio("gun", "audio/gun_1.wav");
-
-    this.load.image("circle_button", "ui/controls/button_circle.png");
-    this.load.image("crosshair", "ui/controls/icon_crosshair.png");
-    this.load.image("down_button", "ui/controls/dpad_element_north.png");
-    this.load.image("up_button", "ui/controls/dpad_element_south.png");
+    // Template gradient darkened with an overlay (works on both WebGL and Canvas).
+    this.add
+      .image(0, 0, "bg")
+      .setOrigin(0)
+      .setDisplaySize(width, height)
+      .setDepth(-2);
+    this.add
+      .rectangle(0, 0, width, height, 0x0b1020, 0.82)
+      .setOrigin(0)
+      .setDepth(-1);
 
     this.cursors = this.input.keyboard?.createCursorKeys();
+    this.moveKeys = this.input.keyboard?.addKeys("W,S") as MoveKeys | undefined;
 
-    // this.responsive.preload();
-  }
-
-  create() {
-    // this.add.image(512, 384, "background");
-
-    console.log(this.responsive, "RESPONSIVE");
-
-    this.upButton = this.add
-      .image(64, this.scale.height - 155, "up_button")
-      .setDepth(100)
-      //   .setScale(this.responsive.scaleFactor)
-      .setInteractive({ useHandCursor: true })
-      .setAlpha(0.7);
-    this.downButton = this.add
-      .image(64, this.scale.height - 80, "down_button")
-      .setDepth(100)
-      //   .setScale(this.responsive.scaleFactor)
-      .setInteractive({ useHandCursor: true })
-      .setAlpha(0.7);
-
-    this.fireButton = this.add
-      .image(this.scale.width - 80, this.scale.height - 100, "circle_button")
-      .setDepth(100)
-      .setScale(1.5)
-      .setInteractive({ useHandCursor: true });
-
-    this.crossHair = this.add
-      .image(this.scale.width - 80, this.scale.height - 100, "crosshair")
-      .setDepth(101);
-    //   .setScale(this.responsive.scaleFactor);
-
-    this.downButton.on("pointerdown", () => {
-      this.isDownPressed = true;
-      this.downButton.setAlpha(0.5);
-    });
-
-    this.downButton.on("pointerup", () => {
-      this.isDownPressed = false;
-      this.downButton.setAlpha(0.7);
-    });
-
-    this.downButton.on("pointerout", () => {
-      this.isDownPressed = false;
-      this.downButton.setAlpha(0.7);
-    });
-
-    this.upButton.on("pointerdown", () => {
-      this.isUpPressed = true;
-      this.upButton.setAlpha(0.5);
-    });
-
-    this.upButton.on("pointerup", () => {
-      this.isUpPressed = false;
-      this.upButton.setAlpha(0.7);
-    });
-
-    this.upButton.on("pointerout", () => {
-      this.isUpPressed = false;
-      this.upButton.setAlpha(0.7);
-    });
-
-    this.fireButton.on("pointerdown", () => {
-      this.isFirePressed = true;
-      this.fireButton.setAlpha(0.7);
-      this.crossHair.setAlpha(0.8);
-      this.crossHair.setTint(0xff6666);
-    });
-
-    this.fireButton.on("pointerup", () => {
-      this.isFirePressed = false;
-      this.fireButton.setAlpha(1);
-      this.crossHair.setAlpha(1);
-      this.crossHair.clearTint();
-    });
-
-    this.fireButton.on("pointerout", () => {
-      this.isFirePressed = false;
-      this.fireButton.setAlpha(1);
-      this.crossHair.setAlpha(1);
-      this.crossHair.clearTint();
-    });
-
-    this.scoreText = this.add
-      .text(12, 12, "Score: 0", { fontSize: 24 })
-      .setScale(this.responsive.scaleFactor);
-    this.healthText = this.add
-      .text(200, 12, "Health: 20", {
-        fontSize: 24,
-      })
-      .setScale(this.responsive.scaleFactor);
-
-    this.add
-      .text(12, this.scale.height - 36, "Space to Shoot ; Up/Down to Move", {
-        fontSize: 24,
-      })
-      .setDepth(10)
-      .setScale(this.responsive.scaleFactor);
-
-    this.add
-      .text(
-        this.scale.width - 12,
-        this.scale.height - 36,
-        this.registry.get("name"),
-        {
-          fontSize: 24,
-        }
-      )
-      .setOrigin(1, 0)
-      .setDepth(100)
-      .setScale(this.responsive.scaleFactor);
-
-    const leftSensor = this.add.rectangle(
-      0,
-      this.scale.height / 2,
-      10,
-      this.scale.height
-    );
-
-    // const body = leftSensor.body as Phaser.Physics.Arcade.Body;
-    // body.setAllowGravity(false);
-    // body.setImmovable(true);
-
-    // Make invisible
-    leftSensor.setVisible(false);
-
-    this.physics.add.existing(leftSensor);
-
-    this.scoreText.setDepth(100);
-    this.healthText.setDepth(100);
+    this.createHud(isTouch);
+    if (isTouch) {
+      this.createTouchControls();
+    }
 
     this.player = this.physics.add
-      .sprite(64, 64, "ship")
-      .setScale(this.responsive.scaleFactor);
+      .sprite(64 * scaleFactor, height / 2, "ship")
+      .setScale(scaleFactor);
+    this.player.setCollideWorldBounds(true);
+    const hudHeight = HUD_HEIGHT * scaleFactor;
+    (this.player.body as Phaser.Physics.Arcade.Body).setBoundsRectangle(
+      new Phaser.Geom.Rectangle(0, hudHeight, width, height - hudHeight * 2)
+    );
 
+    // runChildUpdate so Bullet/Enemy update() actually runs each frame.
     this.bullets = this.physics.add.group({
       classType: Bullet,
+      runChildUpdate: true,
     });
-
     this.enemies = this.physics.add.group({
       classType: Enemy,
+      runChildUpdate: true,
     });
 
-    this.physics.add.collider(this.bullets, this.enemies);
-
-    this.player.setCollideWorldBounds(true, 0, 0);
-    this.player.setBounce(0, 0);
-
-    const spawnRef = this.time.addEvent({
-      delay: 2000,
-      loop: true,
-      callback: () => {
-        const y = Phaser.Math.Between(64, this.scale.height - 64);
-        this.spawnEnemy(this.scale.width - 100, y);
-      },
-    });
+    // Invisible static strip along the left edge: enemies reaching it hurt the player.
+    const leftSensor = this.add
+      .rectangle(0, height / 2, 10, height)
+      .setVisible(false);
+    this.physics.add.existing(leftSensor, true);
 
     this.physics.add.overlap(this.bullets, this.enemies, (b, e) => {
-      const _enemy = e as Enemy;
-      const _bullet = b as Bullet;
+      const enemy = e as Enemy;
+      const bullet = b as Bullet;
 
-      _enemy.takeDamage(_bullet.getDamage(), (s) => {
-        this.score += s;
+      bullet.destroy();
+      enemy.takeDamage(bullet.getDamage(), (points) => {
+        this.score += points;
+        this.updateHud();
       });
-
-      _bullet.destroy();
     });
 
-    this.physics.add.overlap(leftSensor, this.enemies, (senson, e) => {
-      const _enemy = e as Enemy;
-      // console.log(_enemy.getDamage(), "damage");
-      this.health -= _enemy.getDamage();
+    this.physics.add.overlap(leftSensor, this.enemies, (_sensor, e) => {
+      if (this.isGameOver) return;
+
+      const enemy = e as Enemy;
+      this.health -= enemy.getDamage();
+      enemy.destroy();
+      this.updateHud();
 
       if (this.health <= 0) {
-        spawnRef.destroy();
-        this.showGameOver();
+        this.endGame();
       }
-
-      _enemy.destroy();
     });
+
+    this.scheduleNextSpawn();
   }
 
   update(time: number) {
-    this.scoreText.setText(`Score: ${this.score}`);
-    this.healthText.setText(`Health: ${this.health}`);
+    if (this.isGameOver) return;
 
-    if (this.health <= 0) {
-      return;
-    }
+    const movingDown =
+      this.cursors?.down.isDown || this.moveKeys?.S.isDown || this.isDownPressed;
+    const movingUp =
+      this.cursors?.up.isDown || this.moveKeys?.W.isDown || this.isUpPressed;
 
-    if (this.cursors?.down.isDown || this.isDownPressed) {
-      this.player.setVelocityY(this.speed * this.responsive.scaleY);
-    } else if (this.cursors?.up.isDown || this.isUpPressed) {
-      this.player.setVelocityY(-this.speed * this.responsive.scaleY);
+    if (movingDown) {
+      this.player.setVelocityY(PLAYER_SPEED * this.responsive.scaleY);
+    } else if (movingUp) {
+      this.player.setVelocityY(-PLAYER_SPEED * this.responsive.scaleY);
     } else {
       this.player.setVelocityY(0);
     }
 
-    if (
-      (this.cursors?.space.isDown || this.isFirePressed) &&
-      time > this.lastShotTime + this.shootCooldown
-    ) {
-      this.sound.play("gun");
-      const bullet = new Bullet(
-        this,
-        this.player.x + 10,
-        this.player.y,
-        "missile"
-      );
-
-      this.bullets.add(bullet);
-      bullet.init();
-
+    const firing = this.cursors?.space.isDown || this.isFirePressed;
+    if (firing && time > this.lastShotTime + SHOOT_COOLDOWN_MS) {
+      this.shoot();
       this.lastShotTime = time;
     }
   }
 
-  spawnEnemy(x: number, y: number) {
-    const type = Phaser.Math.RND.pick(["pink", "blue", "green"]);
-    let e;
-    if (type === "pink") {
-      e = new PinkEnemy(this, x, y);
-    } else if (type === "blue") {
-      e = new BlueEnemy(this, x, y);
-    } else {
-      e = new GreenEnemy(this, x, y);
+  private resetState() {
+    this.score = 0;
+    this.health = START_HEALTH;
+    this.isGameOver = false;
+    this.lastShotTime = 0;
+    this.spawnInterval = SPAWN_INTERVAL_START_MS;
+    this.isDownPressed = false;
+    this.isUpPressed = false;
+    this.isFirePressed = false;
+  }
+
+  private createHud(isTouch: boolean) {
+    const { width, height } = this.scale;
+    const { scaleFactor } = this.responsive;
+
+    this.scoreText = this.add
+      .text(12, 12, "", { fontSize: 24 })
+      .setScale(scaleFactor)
+      .setDepth(100);
+    this.healthText = this.add
+      .text(200 * scaleFactor, 12, "", { fontSize: 24 })
+      .setScale(scaleFactor)
+      .setDepth(100);
+    this.updateHud();
+
+    if (!isTouch) {
+      this.add
+        .text(12, height - 36 * scaleFactor, "Space to Shoot ; Up/Down to Move", {
+          fontSize: 24,
+        })
+        .setDepth(100)
+        .setScale(scaleFactor);
     }
 
-    if (e) {
-      this.enemies.add(e);
-      e.init();
+    const name = this.registry.get("name") as string | undefined;
+    if (name) {
+      this.add
+        .text(width - 12, 12, name, { fontSize: 24 })
+        .setOrigin(1, 0)
+        .setDepth(100)
+        .setScale(scaleFactor);
     }
   }
 
-  showGameOver() {
-    // Pause gameplay
-    this.physics.world.pause();
+  private createTouchControls() {
+    const { width, height } = this.scale;
+    // Never shrink below the 64px art so buttons stay thumb-sized on phones.
+    const buttonScale = Math.max(1, this.responsive.scaleFactor);
+    const margin = 16;
 
-    // Dim the screen
-    this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      0x000000,
-      0.5
-    );
-
-    // Game Over text
-    this.add
-      .text(this.scale.width / 2, this.scale.height / 2 - 40, "GAME OVER", {
-        fontSize: "48px",
-        color: "#ff4444",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    // Score
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2 + 20,
-        `Score: ${this.score}`,
-        {
-          fontSize: "24px",
-          color: "#ffffff",
-        }
-      )
-      .setOrigin(0.5);
-
-    // Create a restart button
-    const restartButton = this.add
-      .text(this.scale.width / 2, this.scale.height / 2 + 80, "Restart", {
-        fontSize: "24px",
-        color: "#00ff00",
-        backgroundColor: "#000000",
-        padding: { x: 10, y: 5 },
-      })
-      .setOrigin(0.5)
+    const upButton = this.add
+      .image(0, 0, "up_button")
+      .setScale(buttonScale)
+      .setDepth(100)
+      .setAlpha(0.7)
+      .setInteractive({ useHandCursor: true });
+    const downButton = this.add
+      .image(0, 0, "down_button")
+      .setScale(buttonScale)
+      .setDepth(100)
+      .setAlpha(0.7)
       .setInteractive({ useHandCursor: true });
 
-    // Button hover effect
-    restartButton.on("pointerover", () => {
-      restartButton.setStyle({ fill: "#ffff00" });
-    });
-    restartButton.on("pointerout", () => {
-      restartButton.setStyle({ fill: "#00ff00" });
-    });
+    const buttonSize = upButton.displayWidth;
+    const gap = 8;
+    downButton.setPosition(
+      margin + buttonSize / 2,
+      height - margin - buttonSize / 2
+    );
+    upButton.setPosition(
+      downButton.x,
+      downButton.y - buttonSize - gap
+    );
 
-    // Restart scene when clicked
-    restartButton.on("pointerdown", () => {
-      this.health = 10;
-      this.score = 0;
-      this.scene.restart();
+    const fireButton = this.add
+      .image(0, 0, "circle_button")
+      .setScale(buttonScale * 1.5)
+      .setDepth(100)
+      .setInteractive({ useHandCursor: true });
+    fireButton.setPosition(
+      width - margin - fireButton.displayWidth / 2,
+      height - margin - fireButton.displayHeight / 2
+    );
+    const crossHair = this.add
+      .image(fireButton.x, fireButton.y, "crosshair")
+      .setScale(buttonScale)
+      .setDepth(101);
+
+    this.bindHoldButton(upButton, (held) => {
+      this.isUpPressed = held;
+      upButton.setAlpha(held ? 0.5 : 0.7);
     });
+    this.bindHoldButton(downButton, (held) => {
+      this.isDownPressed = held;
+      downButton.setAlpha(held ? 0.5 : 0.7);
+    });
+    this.bindHoldButton(fireButton, (held) => {
+      this.isFirePressed = held;
+      fireButton.setAlpha(held ? 0.7 : 1);
+      crossHair.setAlpha(held ? 0.8 : 1);
+      if (held) {
+        crossHair.setTint(0xff6666);
+      } else {
+        crossHair.clearTint();
+      }
+    });
+  }
+
+  /** Reports true while the pointer is held on the image, false on release/leave. */
+  private bindHoldButton(
+    image: Phaser.GameObjects.Image,
+    onChange: (held: boolean) => void
+  ) {
+    image.on("pointerdown", () => onChange(true));
+    image.on("pointerup", () => onChange(false));
+    image.on("pointerout", () => onChange(false));
+  }
+
+  private updateHud() {
+    this.scoreText.setText(`Score: ${this.score}`);
+    this.healthText.setText(`Health: ${Math.max(0, this.health)}`);
+  }
+
+  private shoot() {
+    this.sound.play("gun");
+
+    const bullet = new Bullet(
+      this,
+      this.player.x + this.player.displayWidth / 2,
+      this.player.y,
+      "missile"
+    );
+    this.bullets.add(bullet);
+    bullet.init();
+  }
+
+  private scheduleNextSpawn() {
+    this.time.delayedCall(this.spawnInterval, () => {
+      if (this.isGameOver) return;
+
+      this.spawnEnemy();
+      this.spawnInterval = Math.max(
+        SPAWN_INTERVAL_MIN_MS,
+        this.spawnInterval - SPAWN_INTERVAL_STEP_MS
+      );
+      this.scheduleNextSpawn();
+    });
+  }
+
+  private spawnEnemy() {
+    const { width, height } = this.scale;
+    const { scaleFactor } = this.responsive;
+
+    // Start just off the right edge so enemies fly in rather than pop in.
+    const x = width + 80 * scaleFactor;
+    // Keep spawns clear of the HUD strips (tallest alien is ~145px at base size).
+    const margin = (HUD_HEIGHT + 72) * scaleFactor;
+    const y = Phaser.Math.Between(margin, height - margin);
+
+    const type = Phaser.Math.RND.pick(["pink", "blue", "green"] as const);
+    let enemy: Enemy;
+    if (type === "pink") {
+      enemy = new PinkEnemy(this, x, y);
+    } else if (type === "blue") {
+      enemy = new BlueEnemy(this, x, y);
+    } else {
+      enemy = new GreenEnemy(this, x, y);
+    }
+
+    // init() must run after add(): the group resets body defaults on add.
+    this.enemies.add(enemy);
+    enemy.init();
+  }
+
+  private endGame() {
+    this.isGameOver = true;
+    this.player.setVelocityY(0);
+    this.physics.world.pause();
+
+    this.scene.launch("GameOver", { score: this.score });
+    this.scene.pause();
   }
 }

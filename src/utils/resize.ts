@@ -13,8 +13,6 @@ export function getScreenSizeRatio(
       navigator.userAgent
     );
 
-  console.log(isMobile, "MOBILE");
-
   let finalWidth: number;
   let finalHeight: number;
 
